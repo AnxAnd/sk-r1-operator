@@ -23,11 +23,11 @@ Point your Rabbit R1 camera at the QR code below to install and launch **SK-R1 O
 
 ## 🕹️ Hardware Controls & Mappings
 
-The device features three distinct operating modes. Switch between them with the bottom-left **`[MODE]`** button:
+The device features three distinct operating modes. Switch between them with the bottom-left **`[MODE]`** button. Each engine maintains its own **independent sound profile** (Pitch, Tone, Delay, and BPM/Timbre):
 
 | Hardware Control | 1. SYNTH Mode | 2. SAMPLER Mode | 3. TAPE Mode (Looper & Drums) |
 | :--- | :--- | :--- | :--- |
-| **Scroll Wheel (Up / Down)** | Cycles root notes & scale degrees | Scrubs sample start offset (±50ms) | **Adjusts Loop BPM (50–180 BPM)** |
+| **Scroll Wheel (Parameter Dial)** | Adjusts selected parameter tab (**PITCH**, **TONE**, **DELAY**) | Adjusts selected parameter tab (**PITCH**, **TONE**, **DELAY**) | Adjusts selected tab (**BPM**, **PITCH / VARISPEED**, **TONE**, **DELAY**) |
 | **Side Button (PTT Tap)** | Triggers active note envelope | Triggers chromatic sample playback | **Toggles Loop Play / Pause** |
 | **Side Button (PTT Hold)** | Sustains continuous drone note | **Records live audio from built-in mic** | **Triggers Analog Tape Stop** |
 | **Side Button (PTT Release)**| Releases drone note | Stops mic recording & maps chromatically | Restarts tape playback motor |
@@ -35,6 +35,14 @@ The device features three distinct operating modes. Switch between them with the
 | **Tilt Y (Pitch Forward/Back)**| Modulates Filter Resonance / FM depth | Modulates Sample Filter Resonance | Modulates Tape Saturation / Resonance |
 | **Touchscreen 4-Pads** | Plays Root, Minor 3rd, 5th, Octave | Plays Sample at Root, +3st, +7st, +12st | **Plays & Records Kick, Snare, Hi-Hat, Clap** |
 | **Top-Right `[WAV]` Button** | Opens QR Export Modal | Opens QR Export Modal | **Exports Master Loop to WAV via QR** |
+
+### 🎚️ Parameter Selector Tabs
+Tap any tab above the oscilloscope to assign the **physical scroll wheel**:
+* **BPM (Tape Mode Only)**: Dial loop tempo from 50 to 180 BPM in 2-BPM increments. Loop audio is seamlessly resampled.
+* **PITCH**: Adjusts synth notes/scale, chromatic sample pitch (-24 to +24 semitones), or tape varispeed.
+* **TONE**: Sweeps the lowpass filter cutoff frequency ($120\text{ Hz}$ to $9500\text{ Hz}$) with tilt modulation.
+* **DELAY**: Controls the dedicated space echo feedback and wet blend ($0\%$ to $100\%$).
+* **Isolated Profiles**: Tweak settings in Synth mode, jump to Tape or Sampler mode, and return to Synth without losing your customized tone or delay values.
 
 ---
 

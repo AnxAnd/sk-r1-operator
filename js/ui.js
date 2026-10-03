@@ -42,7 +42,9 @@ class UIController {
     this.elRecIndicator = document.getElementById('recIndicator');
     this.elRecText = document.getElementById('recText');
     this.elScopeOverlay = document.getElementById('scopeOverlay');
+    this.elParamTabsContainer = document.getElementById('paramTabs');
     
+    this.paramTabs.bpm = document.getElementById('tabBpm');
     this.paramTabs.pitch = document.getElementById('tabPitch');
     this.paramTabs.tone = document.getElementById('tabTone');
     this.paramTabs.delay = document.getElementById('tabDelay');
@@ -179,6 +181,18 @@ class UIController {
         this.elModeBadge.classList.add('tape');
       }
     }
+
+    // Toggle 4-tabs vs 3-tabs layout for TAPE mode (showing BPM tab)
+    if (this.elParamTabsContainer && this.paramTabs.bpm) {
+      if (modeName === 'tape') {
+        this.elParamTabsContainer.classList.add('four-tabs');
+        this.paramTabs.bpm.classList.remove('hidden');
+      } else {
+        this.elParamTabsContainer.classList.remove('four-tabs');
+        this.paramTabs.bpm.classList.add('hidden');
+      }
+    }
+
     if (this.elScopeOverlay) {
       this.elScopeOverlay.textContent = modeName === 'sampler' ? 'MIC OSC' : (modeName === 'tape' ? 'TAPE REEL' : 'LIVE OSC');
     }

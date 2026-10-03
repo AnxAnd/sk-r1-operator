@@ -135,11 +135,19 @@ html, body {
   height: 22px;
   min-height: 22px;
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 2px;
   padding: 2px 6px;
   background-color: var(--bg-panel);
   border-bottom: 1px solid var(--border-dim);
+}
+
+.param-tabs.four-tabs {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.param-tab.hidden {
+  display: none !important;
 }
 
 .param-tab {

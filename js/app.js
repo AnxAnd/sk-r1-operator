@@ -40,6 +40,7 @@ class App {
     const unlockAudio = async () => {
       if (this.isAudioUnlocked) return;
       await window.audioEngine.init();
+      window.audioEngine.setMode(this.mode);
       window.hardwareController.init();
       this.bindHardwareEvents();
       this.bindTouchControls();
@@ -61,7 +62,7 @@ class App {
   }
 
   bindParameterTabs() {
-    const tabs = ['pitch', 'tone', 'delay'];
+    const tabs = ['bpm', 'pitch', 'tone', 'delay'];
     tabs.forEach(tabKey => {
       const el = document.getElementById(`tab${tabKey.charAt(0).toUpperCase() + tabKey.slice(1)}`);
       if (el) {
@@ -153,7 +154,10 @@ class App {
   handleWheelInput(dir) {
     const audio = window.audioEngine;
 
-    if (this.activeParam === 'pitch') {
+    if (this.activeParam === 'bpm') {
+      audio.setBpm(audio.bpm + dir * 2);
+      this.updateDisplayState();
+    } else if (this.activeParam === 'pitch') {
       if (this.mode === 'synth') {
         // Step semitones or notes in scale
         this.stepNote(dir);
@@ -246,7 +250,22 @@ class App {
       else if (this.mode === 'sampler') this.mode = 'tape';
       else this.mode = 'synth';
 
+      // Reset BPM tab if switching out of Tape mode
+      if (this.mode !== 'tape' && this.activeParam === 'bpm') {
+        this.activeParam = 'pitch';
+      }
+
+      // Apply independent mode sound profile
+      window.audioEngine.setMode(this.mode);
+
+      // Keep timbre waveform index synchronized when returning to synth
+      if (this.mode === 'synth' && window.audioEngine.waveType) {
+        const waveIdx = this.waveforms.indexOf(window.audioEngine.waveType);
+        if (waveIdx !== -1) this.waveformIndex = waveIdx;
+      }
+
       window.uiController.updateMode(this.mode);
+      window.uiController.setActiveParamTab(this.activeParam);
       this.updateDisplayState();
     });
 
@@ -407,18 +426,32 @@ class App {
     const btnRec = document.getElementById('btnRec');
 
     // 1. Parameter Readout based on Active Parameter Tab
-    if (this.activeParam === 'pitch') {
+    if (this.activeParam === 'bpm') {
+      window.uiController.updateParamDisplay('LOOP TEMPO:', `${audio.bpm} BPM`);
+    } else if (this.activeParam === 'pitch') {
       const sign = audio.pitchShift >= 0 ? '+' : '';
       if (this.mode === 'synth') {
         const midi = this.getCurrentMidi();
-        window.uiController.updateParamDisplay('PITCH:', `${sign}${audio.pitchShift} ST (${this.midiToNoteName(midi)})`);
-      } else {
-        window.uiController.updateParamDisplay('PITCH:', `${sign}${audio.pitchShift} SEMITONES`);
+        window.uiController.updateParamDisplay('SYNTH PITCH:', `${sign}${audio.pitchShift} ST (${this.midiToNoteName(midi)})`);
+      } else if (this.mode === 'sampler') {
+        window.uiController.updateParamDisplay('SMPL PITCH:', `${sign}${audio.pitchShift} SEMITONES`);
+      } else if (this.mode === 'tape') {
+        window.uiController.updateParamDisplay('VARISPEED:', `${sign}${audio.pitchShift} SEMITONES`);
       }
     } else if (this.activeParam === 'tone') {
-      window.uiController.updateParamDisplay('TONE LPF:', `${Math.round(audio.targetCutoff)} Hz`);
+      if (this.mode === 'synth') {
+        window.uiController.updateParamDisplay('SYNTH TONE:', `${Math.round(audio.targetCutoff)} Hz`);
+      } else if (this.mode === 'sampler') {
+        window.uiController.updateParamDisplay('SMPL TONE:', `${Math.round(audio.targetCutoff)} Hz`);
+      } else if (this.mode === 'tape') {
+        window.uiController.updateParamDisplay('TAPE FILTER:', `${Math.round(audio.targetCutoff)} Hz`);
+      }
     } else if (this.activeParam === 'delay') {
-      window.uiController.updateParamDisplay('ECHO MIX:', `${audio.delayAmount}% (${Math.round(audio.delayTime * 1000)}ms)`);
+      if (this.mode === 'tape') {
+        window.uiController.updateParamDisplay('TAPE ECHO:', `${audio.delayAmount}% (${Math.round(audio.delayTime * 1000)}ms)`);
+      } else {
+        window.uiController.updateParamDisplay('ECHO MIX:', `${audio.delayAmount}% (${Math.round(audio.delayTime * 1000)}ms)`);
+      }
     }
 
     // 2. Mode-Specific Display Updates

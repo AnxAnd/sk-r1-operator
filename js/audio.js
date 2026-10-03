@@ -32,10 +32,33 @@ class AudioEngine {
     this.voiceGain = null;
     this.waveType = 'sawtooth'; // 'sawtooth', 'square', 'triangle', 'sine', 'fm'
     
-    // Sound Shaping Parameters
-    this.pitchShift = 0; // -24 to +24 semitones
-    this.manualTone = 3200; // Base cutoff Hz (100Hz to 9500Hz)
-    this.delayAmount = 30; // 0% to 100%
+    // Active Engine Mode & Per-Mode Sound Profiles
+    this.activeMode = 'synth';
+    this.modeProfiles = {
+      synth: {
+        pitch: 0,        // -24 to +24 semitones
+        tone: 3200,      // 100 to 9500 Hz
+        delay: 25,       // 0% to 100%
+        waveType: 'sawtooth'
+      },
+      sampler: {
+        pitch: 0,        // -24 to +24 semitones
+        tone: 5800,      // Brighter default for mic capture
+        delay: 15,       // 0% to 100%
+        startOffset: 0.0
+      },
+      tape: {
+        bpm: 96,         // 50 to 180 BPM
+        pitch: 0,        // Varispeed -12 to +12 semitones
+        tone: 4200,      // Master tape filter
+        delay: 35        // Master tape echo
+      }
+    };
+
+    // Sound Shaping Parameters (Active profile values)
+    this.pitchShift = 0;
+    this.manualTone = 3200;
+    this.delayAmount = 25;
     
     // Kinetic Filter Parameters (Tilt-controlled)
     this.targetCutoff = 3200;
@@ -185,23 +208,64 @@ class AudioEngine {
   }
 
   // ----------------------------------------------------
-  // UNIVERSAL SOUND SHAPING (PITCH, TONE, DELAY)
+  // INDEPENDENT PER-MODE SOUND PROFILES & PARAMETERS
   // ----------------------------------------------------
 
+  setMode(mode) {
+    if (!this.modeProfiles[mode]) return;
+    this.activeMode = mode;
+    this.applyModeProfile(mode);
+  }
+
+  applyModeProfile(mode) {
+    const profile = this.modeProfiles[mode];
+    if (!profile) return;
+
+    this.pitchShift = profile.pitch;
+    this.manualTone = profile.tone;
+    this.delayAmount = profile.delay;
+
+    if (mode === 'synth' && profile.waveType) {
+      this.waveType = profile.waveType;
+    }
+    if (mode === 'tape') {
+      this.bpm = profile.bpm;
+      if (this.isTapePlaying) {
+        this.tapePlaybackRate = Math.pow(2, this.pitchShift / 12);
+      }
+    }
+
+    // Push new mode parameters to audio DSP immediately
+    this.setTone(this.manualTone);
+    this.setDelayAmount(this.delayAmount);
+  }
+
   setPitchShift(semitones) {
-    this.pitchShift = Math.max(-24, Math.min(24, Math.round(semitones)));
-    if (this.isTapePlaying) {
+    const clamped = Math.max(-24, Math.min(24, Math.round(semitones)));
+    this.pitchShift = clamped;
+    if (this.modeProfiles[this.activeMode]) {
+      this.modeProfiles[this.activeMode].pitch = clamped;
+    }
+    if (this.activeMode === 'tape' && this.isTapePlaying) {
       this.tapePlaybackRate = Math.pow(2, this.pitchShift / 12);
     }
   }
 
   setTone(cutoffHz) {
-    this.manualTone = Math.max(120, Math.min(9500, Math.round(cutoffHz)));
+    const clamped = Math.max(120, Math.min(9500, Math.round(cutoffHz)));
+    this.manualTone = clamped;
+    if (this.modeProfiles[this.activeMode]) {
+      this.modeProfiles[this.activeMode].tone = clamped;
+    }
     this.updateCutoffTarget();
   }
 
   setDelayAmount(percent) {
-    this.delayAmount = Math.max(0, Math.min(100, Math.round(percent)));
+    const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+    this.delayAmount = clamped;
+    if (this.modeProfiles[this.activeMode]) {
+      this.modeProfiles[this.activeMode].delay = clamped;
+    }
     const norm = this.delayAmount / 100;
     this.delayWet = norm * 0.65;
     this.delayFeedback = norm * 0.76;
@@ -210,6 +274,15 @@ class AudioEngine {
       this.delayWetGain.gain.setTargetAtTime(this.delayWet, now, 0.02);
       this.delayFeedbackNode.gain.setTargetAtTime(this.delayFeedback, now, 0.02);
     }
+  }
+
+  setBpm(newBpm) {
+    const clamped = Math.max(50, Math.min(180, Math.round(newBpm)));
+    this.bpm = clamped;
+    if (this.modeProfiles.tape) {
+      this.modeProfiles.tape.bpm = clamped;
+    }
+    this.initTapeBuffer(clamped);
   }
 
   updateKineticFilter(tiltX, tiltY) {
@@ -233,6 +306,9 @@ class AudioEngine {
 
   setWaveType(type) {
     this.waveType = type;
+    if (this.modeProfiles && this.modeProfiles.synth) {
+      this.modeProfiles.synth.waveType = type;
+    }
   }
 
   triggerSynth(freq, isHold = false) {
@@ -517,12 +593,29 @@ class AudioEngine {
   // ----------------------------------------------------
 
   initTapeBuffer(bpm = this.bpm) {
+    const oldBuffer = this.tapeBuffer;
+    const oldLen = this.tapeBufferLength;
     this.bpm = bpm;
     const sampleRate = this.ctx ? this.ctx.sampleRate : 44100;
     const seconds = (this.loopBeats * 60) / this.bpm;
     this.tapeBufferLength = Math.floor(sampleRate * seconds);
-    this.tapeBuffer = new Float32Array(this.tapeBufferLength);
-    this.tapePlayhead = 0;
+    const newBuffer = new Float32Array(this.tapeBufferLength);
+
+    if (oldBuffer && oldLen > 0) {
+      // Resample existing audio to fit new loop length without clicks or wiping
+      const ratio = oldLen / this.tapeBufferLength;
+      for (let i = 0; i < this.tapeBufferLength; i++) {
+        const srcIdx = i * ratio;
+        const base = Math.floor(srcIdx);
+        const frac = srcIdx - base;
+        const s1 = oldBuffer[base % oldLen] || 0;
+        const s2 = oldBuffer[(base + 1) % oldLen] || 0;
+        newBuffer[i] = s1 + frac * (s2 - s1);
+      }
+      this.tapePlayhead = (this.tapePlayhead / oldLen) * this.tapeBufferLength;
+    }
+
+    this.tapeBuffer = newBuffer;
     console.log('[Tape] Buffer initialized for', seconds.toFixed(2), 's at', this.bpm, 'BPM');
   }
 
