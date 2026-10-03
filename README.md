@@ -11,7 +11,7 @@ A dedicated pocket music workstation, field sampler, and tape looper engineered 
 
 ## 📲 Install on Rabbit R1 (Instant Scan)
 
-Point your Rabbit R1 camera at the QR code below to install and launch **SK-R1 Operator**:
+Point your Rabbit R1 camera at the QR code below to launch **SK-R1 Operator**:
 
 <div align="center">
   <img src="r1_pairing_qr.png" alt="Rabbit R1 Pairing QR Code" width="260" height="260" />
@@ -21,83 +21,117 @@ Point your Rabbit R1 camera at the QR code below to install and launch **SK-R1 O
 
 ---
 
-## 🕹️ Hardware Controls & Mappings
+## ✨ Key Features & Architecture
 
-The device features three distinct operating modes. Switch between them with the bottom-left **`[MODE]`** button. Each engine maintains its own **independent sound profile** (Pitch, Tone, Delay, and BPM/Timbre):
-
-| Hardware Control | 1. SYNTH Mode | 2. SAMPLER Mode | 3. TAPE Mode (Looper & Drums) |
-| :--- | :--- | :--- | :--- |
-| **Scroll Wheel (Parameter Dial)** | Adjusts selected parameter tab (**PITCH**, **TONE**, **DELAY**) | Adjusts selected parameter tab (**PITCH**, **TONE**, **DELAY**) | Adjusts selected tab (**BPM**, **PITCH / VARISPEED**, **TONE**, **DELAY**) |
-| **Side Button (PTT Tap)** | Triggers active note envelope | Triggers chromatic sample playback | **Toggles Loop Play / Pause** |
-| **Side Button (PTT Hold)** | Sustains continuous drone note | **Records live audio from built-in mic** | **Triggers Analog Tape Stop** |
-| **Side Button (PTT Release)**| Releases drone note | Stops mic recording & maps chromatically | Restarts tape playback motor |
-| **Tilt X (Roll Left/Right)** | Sweeps 24dB Lowpass Filter (100Hz–9kHz) | Sweeps Lowpass Filter on sample | Sweeps Lowpass Filter on master loop |
-| **Tilt Y (Pitch Forward/Back)**| Modulates Filter Resonance / FM depth | Modulates Sample Filter Resonance | Modulates Tape Saturation / Resonance |
-| **Touchscreen 4-Pads** | Plays Root, Minor 3rd, 5th, Octave | Plays Sample at Root, +3st, +7st, +12st | **Plays & Records Kick, Snare, Hi-Hat, Clap** |
-| **Top-Right `[WAV]` Button** | Opens QR Export Modal | Opens QR Export Modal | **Exports Master Loop to WAV via QR** |
-
-### 🎚️ Parameter Selector Tabs
-Tap any tab above the oscilloscope to assign the **physical scroll wheel**:
-* **BPM (Tape Mode Only)**: Dial loop tempo from 50 to 180 BPM in 2-BPM increments. Loop audio is seamlessly resampled.
-* **PITCH**: Adjusts synth notes/scale, chromatic sample pitch (-24 to +24 semitones), or tape varispeed.
-* **TONE**: Sweeps the lowpass filter cutoff frequency ($120\text{ Hz}$ to $9500\text{ Hz}$) with tilt modulation.
-* **DELAY**: Controls the dedicated space echo feedback and wet blend ($0\%$ to $100\%$).
-* **Isolated Profiles**: Tweak settings in Synth mode, jump to Tape or Sampler mode, and return to Synth without losing your customized tone or delay values.
+* **Zero-Click Micro-Envelopes**: Built with anti-click audio DSP—all voice triggers use ultra-fast 3ms linear attack ramps and 4ms voice-stealing fade-outs, eliminating leading-edge clicks and DC pops on pads and samples.
+* **Independent Sound Profiles**: Each mode (`SYNTH`, `SAMPLER`, `TAPE`) maintains its own isolated sound state (Pitch, Tone, Delay, and Timbre/BPM). Tweak settings in one engine, jump between modes, and return without parameter bleed or reset.
+* **Vintage Space Echo FX Bus**: Dedicated delay processor featuring a 2.4kHz high-cut damping filter and variable feedback loop, delivering authentic magnetic tape saturation and echo.
+* **Non-Destructive BPM Tempo Resampling**: Dial loop tempo from 50 to 180 BPM in Tape mode. Any recorded loops are seamlessly resampled via linear interpolation, preserving your takes across tempo changes.
+* **Kinetic Tilt Filter & FM Modulation**: Tilting the R1 left/right sweeps the analog lowpass filter (100Hz–9.5kHz) with 60Hz linear interpolation (`lerp`), while forward/back tilt modulates filter resonance ($Q: 0.5$ to $14.0$) and FM operator depth.
+* **Instant Master WAV Export via QR Code**: Render your session into a 16-bit 44.1kHz Stereo WAV and beam it straight to your phone camera via QR code.
 
 ---
 
 ## ⚡ The Three Engines
 
+Switch between engines anytime using the bottom-left **`[MODE]`** button:
+
+```
+[SYNTH] ──▶ [SAMPLER] ──▶ [TAPE] ──▶ (Cycles)
+```
+
 ### 1. Hybrid Synthesizer (`SYNTH`)
-* **5 Selectable Timbres**: Pure Sawtooth, Square wave with pulse width, Warm Triangle, Sine, and a **2-Operator FM Synthesizer** (carrier modulated by harmonic ratio).
-* **Kinetic Tilt Lowpass Filter**: Tilting the R1 left/right sweeps an analog-modeled 24dB lowpass filter cutoff ($100\text{ Hz}$ to $9,000\text{ Hz}$) with zero stepping noise using real-time linear interpolation (`lerp`).
-* **Resonance & FM Modulation**: Tilting forward/back drives filter resonance ($Q: 0.5$ to $14.0$) and pushes FM operator modulation depth.
-* **Scale Quantizer**: Quantizes physical scroll wheel steps into musical scales (Minor Pentatonic, Major Pentatonic, Blues, Insen, and Dorian).
+* **5 Selectable Timbres**: Cycle through Pure Sawtooth, Square wave with pulse width, Warm Triangle, Sine, and 2-Operator FM Synthesis using the **`[TIMBRE]`** button.
+* **Scale Quantizer & Notes**: Quantizes scroll wheel steps into musical scales (Minor Pentatonic, Major Pentatonic, Blues, Insen, Dorian).
+* **4 Performance Pads**:
+  * **Pad 1 [ROOT]**: Tonic note of active scale and octave.
+  * **Pad 2 [+3RD]**: Minor / Major third interval.
+  * **Pad 3 [+5TH]**: Perfect fifth harmony.
+  * **Pad 4 [+OCT]**: Octave lead.
+* **Drone / Sustain**: Tap **`[DRONE]`** (or hold side PTT) to lock a continuous synth drone while tweaking filter cutoff and space echo.
 
 ### 2. Field Sampler (`SAMPLER`)
-* **One-Touch Microphone Sampling**: Hold the side PTT button to record ambient sounds, vocals, or percussive hits directly from the R1 microphone.
-* **Auto-Normalization & Chromatic Pitching**: Upon release, the captured audio is normalized to $-0.5\text{ dB}$ peak gain and chromatically mapped across musical intervals.
-* **Scroll-Wheel Scrubbing**: Rotate the physical scroll wheel to scrub the sample start offset frame-by-frame through the recorded audio buffer.
+* **One-Touch Field Recording**: Tap **`[TAP REC]`** on screen or hold the side PTT button to record audio directly from the Rabbit R1 microphone. Auto-normalizes to $-0.5\text{ dB}$ peak on release.
+* **Chromatic Pitch Mapping**: Captured samples are automatically tuned across the 4 touch pads:
+  * **Pad 1 [ROOT]**: Original pitch.
+  * **Pad 2 [+3ST]**: +3 semitones (Minor 3rd).
+  * **Pad 3 [+7ST]**: +7 semitones (Fifth).
+  * **Pad 4 [+12ST]**: +12 semitones (Octave).
+* **Dedicated Tone & Space Echo**: Sculpt your sample with its own dedicated lowpass filter cutoff and space echo mix.
+* **Pitch Reset**: Tap the center **`[RESET]`** button anytime to return pitch shift to 0 semitones.
 
-### 3. Pocket Tape Looper & Vintage Drum Synth (`TAPE`)
-* **Sound-on-Sound Magnetic Tape Overdub**: Tap `[OVERDUB]` to layer recordings onto the circulating loop buffer with vintage analog magnetic decay (`0.94` feedback multiplier).
-* **Casio SK / 808 Style Drums**: The 4 touch pads become immediate drum synthesizers:
-  * **Pad 1 [KICK]**: Pitch-dropped sine sweep ($160\text{ Hz} \rightarrow 36\text{ Hz}$) with punchy attack.
-  * **Pad 2 [SNARE]**: Tuned $190\text{ Hz}$ triangle tone + snappy bandpass noise burst ($1250\text{ Hz}$).
-  * **Pad 3 [HI-HAT]**: Highpass metallic noise cluster ($7500\text{ Hz}$).
-  * **Pad 4 [CLAP]**: Triple-pulsed filtered noise burst.
-* **Analog Tape Stop Effect**: Hold the side PTT button or tap `[TAPE STOP]`. The tape motor slows down exponentially, plunging pitch down to zero. Release to spin the reel back up.
-* **Visual Tape Playhead**: The 60 FPS CRT vector oscilloscope displays a live vertical tape head tracking loop position in real time.
+### 3. Pocket Tape Looper & Drum Synth (`TAPE`)
+* **Magnetic Sound-on-Sound Overdub**: Tap **`[OVERDUB]`** to layer live takes onto an 8-beat loop with vintage magnetic tape decay (`0.94` feedback multiplier).
+* **4 Dedicated Drum Synthesizers**:
+  * **Pad 1 [KICK]**: Pitch-swept analog sine burst ($160\text{ Hz} \rightarrow 36\text{ Hz}$) with punchy transient.
+  * **Pad 2 [SNARE]**: Tuned $190\text{ Hz}$ tone layered with snappy $1250\text{ Hz}$ bandpass noise burst.
+  * **Pad 3 [HI-HAT]**: Crisp $7500\text{ Hz}$ highpass metallic noise cluster.
+  * **Pad 4 [CLAP]**: Triple-pulsed vintage filtered noise burst.
+* **Analog Tape Stop / Motor Brake**: Tap **`[TAPE STOP]`** or hold side PTT to brake the tape motor to an exponential halt; release or tap **`[TAPE START]`** to spin the reel back up.
+* **Live CRT Playhead**: The 60 FPS oscilloscope displays a glowing tape head marker tracking loop position in real time.
+
+---
+
+## 🎚️ Parameter Selector Tabs
+
+The parameter bar above the oscilloscope directs the **physical scroll wheel**:
+
+| Tab | Active Mode | Scroll Wheel Action | Telemetry Readout | Range |
+| :--- | :--- | :--- | :--- | :--- |
+| **`BPM`** | `TAPE` only | Adjusts loop tempo & resamples buffer | `LOOP TEMPO:` | `50 – 180 BPM` ($\pm 2$) |
+| **`PITCH`** | `SYNTH` | Steps notes through musical scale | `SYNTH PITCH:` | Full scale octave range |
+| **`PITCH`** | `SAMPLER` | Shifts sample pitch chromatically | `SMPL PITCH:` | `-24 to +24 ST` |
+| **`PITCH`** | `TAPE` | Varispeed tape pitch & speed | `VARISPEED:` | `-24 to +24 ST` |
+| **`TONE`** | All modes | Adjusts lowpass filter cutoff frequency | `SYNTH / SMPL / TAPE FILTER:` | `120 – 9500 Hz` ($\pm 250\text{Hz}$) |
+| **`DELAY`** | All modes | Adjusts space echo feedback & wet blend | `ECHO MIX / TAPE ECHO:` | `0% – 100%` ($\pm 5\%$) |
+
+> **Note**: In `SYNTH` and `SAMPLER` modes, the layout displays 3 tabs (`PITCH | TONE | DELAY`). Entering `TAPE` mode dynamically activates the 4-tab layout (`BPM | PITCH | TONE | DELAY`).
+
+---
+
+## 🕹️ Rabbit R1 Hardware Mappings
+
+| Hardware Control | Behavior |
+| :--- | :--- |
+| **Physical Scroll Wheel** | Adjusts the currently selected parameter tab (`BPM`, `PITCH`, `TONE`, or `DELAY`). |
+| **Side Button (PTT Tap)** | Triggers active note in `SYNTH`, plays sample in `SAMPLER`, or toggles Play/Pause in `TAPE`. |
+| **Side Button (PTT Hold)** | Sustains drone in `SYNTH`, records live microphone in `SAMPLER`, or triggers analog Tape Stop in `TAPE`. |
+| **Side Button (PTT Release)**| Releases drone note in `SYNTH`, stops mic recording in `SAMPLER`, or spins motor back up in `TAPE`. |
+| **Accelerometer Tilt X (Roll)** | Sweeps lowpass filter cutoff frequency smoothly in real time. |
+| **Accelerometer Tilt Y (Pitch)** | Modulates filter resonance ($Q$) and FM modulation depth. |
+| **Touchscreen 4-Pads** | Plays scale notes, pitched samples, or drum machine voices (Kick, Snare, Hi-Hat, Clap). |
+| **Top-Right `[WAV]` Pill** | Renders 16-bit 44.1kHz Stereo WAV and displays phone camera QR download modal. |
 
 ---
 
 ## 📡 Master WAV Export via QR Code
 
-Getting music recordings off the Rabbit R1 without cables or complex developer tools:
+Exporting music from the Rabbit R1 requires no cables or developer tools:
 
-1. Tap the **`[WAV]`** pill in the top-right status bar.
-2. The engine serializes the master tape performance into an uncompressed **16-bit 44.1kHz Stereo WAV** file in memory.
-3. It generates an ephemeral cloud download link and displays a crisp **QR Code** directly on the R1 screen.
-4. **Point your phone camera at the R1 display, tap the notification banner, and your song drops directly into your phone’s files or DAW.**
+1. Tap the **`[WAV]`** button in the top-right status bar.
+2. The engine serializes the master session into an uncompressed **16-bit 44.1kHz Stereo WAV**.
+3. It generates an ephemeral cloud download link and displays a high-contrast **QR Code** directly on the screen.
+4. **Scan the R1 screen with your smartphone camera to immediately download the WAV file to your phone's storage or DAW.**
 
 ---
 
-## 📐 Architecture & Constraints
+## 📐 Technical Specifications
 
-| Parameter | Specification |
+| Component | Specification |
 | :--- | :--- |
-| **Viewport** | Strictly **240 × 282 pixels** (Rabbit R1 screen) |
-| **Styling** | Teenage Engineering matte-black (`#0c0d0e`), safety-orange (`#fe5000`), and Casio retro-cyan (`#00e5ff`) |
-| **Visualizer** | 60 FPS CRT vector beam oscilloscope rendered onto a 240×56 HTML5 `<canvas>` |
-| **Audio Pipeline** | Web Audio API (`AudioContext`, `BiquadFilterNode`, `WaveShaperNode`, `ScriptProcessorNode`) |
-| **Sensors** | Native Rabbit R1 Accelerometer stream (`window.creationSensors.accelerometer`) at 60Hz |
-| **Dependencies** | Zero external frameworks; vanilla JavaScript and embedded `qrcode.min.js` |
+| **Target Device** | Rabbit R1 (rabbitOS Creations Web Environment) |
+| **Viewport** | Strictly **240 × 282 pixels** (no scrollbars, zero viewport bleed) |
+| **Styling** | Teenage Engineering matte-black (`#0c0d0e`), safety-orange (`#fe5000`), and retro-cyan (`#00e5ff`) |
+| **Visualizer** | 60 FPS CRT vector beam oscilloscope with live tape playhead tracking (HTML5 Canvas) |
+| **Audio Architecture** | Web Audio API (`AudioContext`, `BiquadFilterNode`, `DelayNode`, `ScriptProcessorNode`, `WaveShaperNode`) |
+| **Sensors** | Rabbit R1 accelerometer stream (`window.creationSensors.accelerometer`) |
+| **Dependencies** | Pure Vanilla JavaScript, HTML5, CSS3. Zero runtime frameworks. Embedded QR encoder. |
 
 ---
 
-## 💻 Local Development & Desktop Emulation
+## 💻 Desktop Emulation & Development
 
-To test and play with the app on your computer:
+To run and test locally on desktop:
 
 ```bash
 git clone https://github.com/AnxAnd/sk-r1-operator.git
@@ -105,17 +139,17 @@ cd sk-r1-operator
 python3 -m http.server 8080
 ```
 
-1. Open `http://localhost:8080` in your browser.
-2. Open DevTools and set the viewport to **240 × 282** pixels.
-3. Click **"TAP TO ENGAGE"** to unlock the audio context.
-4. **Desktop Controls**:
-   * **Up / Down Arrows or Mouse Wheel**: Simulates R1 Scroll Wheel.
-   * **Spacebar (Tap / Hold)**: Simulates Side Button (PTT click / hold).
-   * **Mouse Cursor Position**: Simulates R1 Accelerometer Tilt X/Y.
-   * **On-Screen Pads**: Click or tap to trigger notes and drums.
+1. Open `http://localhost:8080` in Chrome or Firefox.
+2. Open DevTools (F12) and toggle device mode set to **240 × 282** pixels.
+3. Click **"TAP TO ENGAGE"** to unlock the Web Audio Context.
+4. **Desktop Keybindings**:
+   * **Up / Down Arrow Keys or Mouse Wheel**: Controls physical scroll wheel for selected tab.
+   * **Spacebar (Tap / Hold)**: Simulates side PTT button (trigger, sample recording, or tape stop).
+   * **Mouse Cursor Movement**: Simulates R1 3-axis accelerometer tilt.
+   * **Mouse Clicks / Taps**: Triggers pads and buttons.
 
 ---
 
 ## 📄 License
 
-MIT License. Inspired by Teenage Engineering (OP-1 / Pocket Operator) and Casio (SK-1). Built for the Rabbit R1 community.
+MIT License. Designed and engineered for the Rabbit R1 creations ecosystem. Inspired by Teenage Engineering and Casio.
