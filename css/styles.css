@@ -1,0 +1,426 @@
+/* sk-r1-operator: Teenage Engineering x Casio SK-1 for Rabbit R1 */
+/* Display constraint: 240x282 viewport strictly */
+
+:root {
+  --bg-main: #0c0d0e;
+  --bg-panel: #16181b;
+  --bg-card: #202328;
+  --border-dim: #2b2e35;
+  --border-bright: #3f444e;
+  
+  --te-orange: #fe5000;
+  --casio-teal: #00e5ff;
+  --amber-glow: #ffb300;
+  --rec-red: #ff3344;
+  --text-white: #f5f5f7;
+  --text-dim: #8b909a;
+  
+  --font-mono: 'SF Mono', 'Courier New', Courier, monospace;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+html, body {
+  width: 240px;
+  height: 282px;
+  overflow: hidden;
+  background-color: var(--bg-main);
+  color: var(--text-white);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+#r1-container {
+  width: 240px;
+  height: 282px;
+  max-width: 240px;
+  max-height: 282px;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-main);
+  border: 1px solid var(--border-dim);
+  position: relative;
+  overflow: hidden;
+}
+
+/* TOP STATUS BAR (24px) */
+.header-bar {
+  height: 24px;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  background-color: var(--bg-panel);
+  border-bottom: 1px solid var(--border-dim);
+}
+
+.brand-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.brand-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--te-orange);
+  box-shadow: 0 0 6px var(--te-orange);
+}
+
+.mode-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 2px;
+  letter-spacing: 0.8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-bright);
+  color: var(--casio-teal);
+  text-transform: uppercase;
+}
+
+.mode-badge.sampler {
+  color: var(--te-orange);
+  border-color: var(--te-orange);
+}
+
+.mode-badge.tape {
+  color: var(--amber-glow);
+  border-color: var(--amber-glow);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.export-pill {
+  font-size: 8px;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-bright);
+  color: var(--amber-glow);
+  cursor: pointer;
+  letter-spacing: 0.5px;
+}
+
+.export-pill:active {
+  background: var(--amber-glow);
+  color: #000;
+}
+
+.tilt-reticle {
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+/* MAIN METRICS & READOUT (64px) */
+.data-readout {
+  height: 64px;
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: linear-gradient(180deg, #101215 0%, #0c0d0e 100%);
+  border-bottom: 1px solid var(--border-dim);
+}
+
+.note-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.active-note {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text-white);
+  line-height: 1;
+}
+
+.note-freq {
+  font-size: 11px;
+  color: var(--casio-teal);
+  font-weight: 600;
+}
+
+.telemetry-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.telemetry-row span b {
+  color: var(--text-white);
+  font-weight: normal;
+}
+
+/* OSCILLOSCOPE CANVAS (56px) */
+.scope-container {
+  height: 56px;
+  position: relative;
+  background-color: #070809;
+  border-bottom: 1px solid var(--border-dim);
+  overflow: hidden;
+}
+
+#oscilloscope {
+  width: 240px;
+  height: 56px;
+  display: block;
+}
+
+.scope-overlay {
+  position: absolute;
+  top: 3px;
+  right: 6px;
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
+.rec-indicator {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  display: none;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--rec-red);
+}
+
+.rec-indicator.active {
+  display: flex;
+  animation: blink 0.8s infinite;
+}
+
+.rec-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--rec-red);
+  box-shadow: 0 0 6px var(--rec-red);
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+/* INTERACTIVE TACTILE PADS (80px) */
+.pad-grid {
+  height: 80px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  padding: 4px 6px;
+  background-color: var(--bg-panel);
+  border-bottom: 1px solid var(--border-dim);
+}
+
+.pad-btn {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-bright);
+  border-radius: 3px;
+  color: var(--text-white);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.05s ease, background-color 0.08s ease, border-color 0.08s ease;
+}
+
+.pad-btn:active, .pad-btn.triggered {
+  background-color: var(--te-orange);
+  color: #000;
+  border-color: #fff;
+  transform: scale(0.96);
+  box-shadow: 0 0 10px rgba(254, 80, 0, 0.5);
+}
+
+.pad-degree {
+  font-size: 8px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.pad-btn:active .pad-degree, .pad-btn.triggered .pad-degree {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* FOOTER ACTIONS & MODES (48px) */
+.footer-bar {
+  height: 48px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+  padding: 4px 6px;
+  background-color: var(--bg-main);
+}
+
+.action-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-dim);
+  border-radius: 3px;
+  color: var(--text-white);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  touch-action: manipulation;
+  text-transform: uppercase;
+  transition: all 0.1s ease;
+}
+
+.action-btn span {
+  font-size: 7px;
+  color: var(--text-dim);
+}
+
+.action-btn:active {
+  background: var(--border-bright);
+}
+
+.action-btn.active-state {
+  border-color: var(--te-orange);
+  color: var(--te-orange);
+}
+
+.action-btn.rec-btn {
+  border-color: rgba(255, 51, 68, 0.4);
+}
+
+.action-btn.rec-btn:active, .action-btn.rec-btn.recording {
+  background: var(--rec-red);
+  color: #fff;
+  box-shadow: 0 0 8px var(--rec-red);
+}
+
+/* POPUP OVERLAY (Scale selector / Info / Audio unlock) */
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 240px;
+  height: 282px;
+  background: rgba(12, 13, 14, 0.94);
+  backdrop-filter: blur(2px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 100;
+  text-align: center;
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+.modal-title {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--te-orange);
+  margin-bottom: 6px;
+}
+
+.modal-subtitle {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-bottom: 14px;
+  line-height: 1.3;
+}
+
+.start-btn {
+  padding: 8px 16px;
+  background: var(--te-orange);
+  color: #000;
+  border: none;
+  border-radius: 3px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+}
+
+/* QR Code Export Modal */
+.qr-container {
+  width: 140px;
+  height: 140px;
+  background: #ffffff;
+  padding: 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.6);
+}
+
+.qr-container canvas, .qr-container img {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.dl-link {
+  font-size: 9px;
+  color: var(--casio-teal);
+  text-decoration: underline;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+
+.close-btn {
+  padding: 5px 14px;
+  background: var(--bg-card);
+  color: var(--text-white);
+  border: 1px solid var(--border-bright);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+}
+
+.close-btn:active {
+  background: var(--border-bright);
+}
+

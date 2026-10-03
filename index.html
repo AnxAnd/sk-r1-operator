@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=240, height=282, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SK-R1 OPERATOR</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div id="r1-container">
+    
+    <!-- TOP STATUS BAR (24px) -->
+    <header class="header-bar">
+      <div class="brand-badge">
+        <div class="brand-dot"></div>
+        <span>SK-R1</span>
+      </div>
+      <div id="modeBadge" class="mode-badge">SYNTH</div>
+      <div class="header-right">
+        <button id="btnExport" class="export-pill" title="Export Master WAV">WAV</button>
+        <div id="valTilt" class="tilt-reticle">+0°</div>
+      </div>
+    </header>
+
+    <!-- DATA READOUT & METRICS (64px) -->
+    <section class="data-readout">
+      <div class="note-row">
+        <div id="activeNote" class="active-note">C3</div>
+        <div id="noteFreq" class="note-freq">130.8Hz</div>
+      </div>
+      <div class="telemetry-row">
+        <span>LPF: <b id="valCutoff">1800Hz</b></span>
+        <span>RES: <b id="valRes">3.5</b></span>
+      </div>
+    </section>
+
+    <!-- 60FPS VECTOR OSCILLOSCOPE (56px) -->
+    <section class="scope-container">
+      <canvas id="oscilloscope" width="240" height="56"></canvas>
+      <div class="scope-overlay">LIVE OSC</div>
+      <div id="recIndicator" class="rec-indicator">
+        <div class="rec-dot"></div>
+        <span>REC MIC</span>
+      </div>
+    </section>
+
+    <!-- INTERACTIVE MULTI-TOUCH PADS (80px) -->
+    <section class="pad-grid">
+      <button id="pad0" class="pad-btn">
+        <div class="pad-note">ROOT</div>
+        <div class="pad-degree">I</div>
+      </button>
+      <button id="pad1" class="pad-btn">
+        <div class="pad-note">+3RD</div>
+        <div class="pad-degree">III</div>
+      </button>
+      <button id="pad2" class="pad-btn">
+        <div class="pad-note">+5TH</div>
+        <div class="pad-degree">V</div>
+      </button>
+      <button id="pad3" class="pad-btn">
+        <div class="pad-note">+OCT</div>
+        <div class="pad-degree">VIII</div>
+      </button>
+    </section>
+
+    <!-- FOOTER ACTIONS (48px) -->
+    <footer class="footer-bar">
+      <button id="btnMode" class="action-btn">
+        <span>ENGINE</span>
+        <b>MODE</b>
+      </button>
+      <button id="btnWave" class="action-btn">
+        <span>TIMBRE</span>
+        <b>SAW</b>
+      </button>
+      <button id="btnRec" class="action-btn rec-btn">
+        <span>PTT/MIC</span>
+        <b>REC/DRN</b>
+      </button>
+    </footer>
+
+    <!-- MASTER WAV & QR CODE EXPORT MODAL -->
+    <div id="exportModal" class="modal-overlay hidden">
+      <div class="modal-title">MASTER EXPORT</div>
+      <div id="exportStatus" class="modal-subtitle">SCAN TO DOWNLOAD .WAV</div>
+      <div id="qrTarget" class="qr-container"></div>
+      <a id="directDownloadLink" class="dl-link" download="sk-r1-track.wav">DIRECT DOWNLOAD</a>
+      <button id="closeExport" class="close-btn">RETURN TO R1</button>
+    </div>
+
+    <!-- AUDIO UNLOCK & ACTIVATION MODAL -->
+    <div id="startModal" class="modal-overlay">
+      <div class="modal-title">SK-R1 OPERATOR</div>
+      <div class="modal-subtitle">
+        Teenage Engineering x Casio SK-1<br>
+        Tactile Synth, Sampler & Tape Looper
+      </div>
+      <button id="startBtn" class="start-btn">TAP TO ENGAGE</button>
+    </div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/qrcode.min.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/hardware.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
