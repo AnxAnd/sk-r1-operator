@@ -1,6 +1,7 @@
 /**
  * sk-r1-operator: Audio Engine
  * Teenage Engineering x Casio SK-1 Architecture for Rabbit R1
+ * Zero-Click Micro-Envelopes, Tape Echo FX, Universal Pitch/Tone
  */
 
 class AudioEngine {
@@ -8,11 +9,21 @@ class AudioEngine {
     this.ctx = null;
     this.isInitialized = false;
     
-    // Nodes
+    // Master Nodes
     this.masterGain = null;
     this.limiter = null;
     this.analyser = null;
     this.synthFilter = null;
+    this.voiceBus = null;
+    
+    // Tape Delay / Echo FX Bus
+    this.delayNode = null;
+    this.delayFeedbackNode = null;
+    this.delayFilterNode = null;
+    this.delayWetGain = null;
+    this.delayTime = 0.28; // 280ms
+    this.delayFeedback = 0.42; // 42% feedback
+    this.delayWet = 0.30; // 30% wet mix
     
     // Synth Voice State
     this.currentOsc = null;
@@ -21,38 +32,48 @@ class AudioEngine {
     this.voiceGain = null;
     this.waveType = 'sawtooth'; // 'sawtooth', 'square', 'triangle', 'sine', 'fm'
     
+    // Sound Shaping Parameters
+    this.pitchShift = 0; // -24 to +24 semitones
+    this.manualTone = 3200; // Base cutoff Hz (100Hz to 9500Hz)
+    this.delayAmount = 30; // 0% to 100%
+    
     // Kinetic Filter Parameters (Tilt-controlled)
-    this.targetCutoff = 1800;
-    this.currentCutoff = 1800;
-    this.targetQ = 3.5;
-    this.currentQ = 3.5;
+    this.targetCutoff = 3200;
+    this.currentCutoff = 3200;
+    this.targetQ = 3.0;
+    this.currentQ = 3.0;
+    this.tiltX = 0;
+    this.tiltY = 0;
     
     // Sampler State
     this.mediaRecorder = null;
     this.audioChunks = [];
     this.sampleBuffer = null;
     this.isRecording = false;
-    this.sampleStartOffset = 0.0; // In seconds (scrubbed via wheel)
+    this.sampleStartOffset = 0.0; // In seconds
     this.sampleDuration = 0;
+    this.micStream = null;
+    this.micAnalyser = null;
+    this.micDataArray = new Uint8Array(128);
+    this.recordingTimer = null;
     
     // Tape Looper State
     this.bpm = 96;
     this.loopBeats = 8; // 2 bars in 4/4
-    this.tapeBuffer = null; // Float32Array loop buffer
+    this.tapeBuffer = null;
     this.tapeBufferLength = 0;
-    this.tapePlayhead = 0; // Current sample index
+    this.tapePlayhead = 0;
     this.isTapePlaying = false;
     this.isTapeOverdubbing = false;
-    this.tapeFeedback = 0.94; // Analog tape loop decay per cycle
+    this.tapeFeedback = 0.94;
     this.tapePlaybackRate = 1.0;
     this.tapeStopRamping = false;
     this.tapeScriptNode = null;
+    this.tapeGain = null;
 
     // Master Export Recorder
     this.destNode = null;
     this.masterRecorder = null;
-    this.sessionChunks = [];
-    this.isSessionRecording = false;
   }
 
   async init() {
@@ -78,9 +99,9 @@ class AudioEngine {
 
     // 3. Master Gain
     this.masterGain = this.ctx.createGain();
-    this.masterGain.gain.setValueAtTime(0.7, this.ctx.currentTime);
+    this.masterGain.gain.setValueAtTime(0.72, this.ctx.currentTime);
 
-    // 4. Kinetic Biquad Lowpass Filter (Modulated by R1 Accelerometer)
+    // 4. Kinetic Biquad Lowpass Filter
     this.synthFilter = this.ctx.createBiquadFilter();
     this.synthFilter.type = 'lowpass';
     this.synthFilter.frequency.setValueAtTime(this.currentCutoff, this.ctx.currentTime);
@@ -91,13 +112,38 @@ class AudioEngine {
     this.voiceBus.gain.setValueAtTime(1.0, this.ctx.currentTime);
     this.voiceBus.connect(this.synthFilter);
 
-    // Routing Graph: voiceBus -> synthFilter -> limiter -> masterGain -> analyser -> destination
+    // 6. Dedicated Tape Echo / Delay FX Bus
+    this.delayNode = this.ctx.createDelay(2.0);
+    this.delayNode.delayTime.setValueAtTime(this.delayTime, this.ctx.currentTime);
+
+    this.delayFeedbackNode = this.ctx.createGain();
+    this.delayFeedbackNode.gain.setValueAtTime(this.delayFeedback, this.ctx.currentTime);
+
+    // Analog tape damping filter on echoes
+    this.delayFilterNode = this.ctx.createBiquadFilter();
+    this.delayFilterNode.type = 'lowpass';
+    this.delayFilterNode.frequency.setValueAtTime(2400, this.ctx.currentTime);
+
+    this.delayWetGain = this.ctx.createGain();
+    this.delayWetGain.gain.setValueAtTime(this.delayWet, this.ctx.currentTime);
+
+    // Delay Feedback Loop:
+    // synthFilter -> delayNode -> delayFilterNode -> delayFeedbackNode -> delayNode
+    // delayFilterNode -> delayWetGain -> limiter
+    this.synthFilter.connect(this.delayNode);
+    this.delayNode.connect(this.delayFilterNode);
+    this.delayFilterNode.connect(this.delayFeedbackNode);
+    this.delayFeedbackNode.connect(this.delayNode);
+    this.delayFilterNode.connect(this.delayWetGain);
+    this.delayWetGain.connect(this.limiter);
+
+    // Main Dry Path: synthFilter -> limiter -> masterGain -> analyser -> destination
     this.synthFilter.connect(this.limiter);
     this.limiter.connect(this.masterGain);
     this.masterGain.connect(this.analyser);
     this.analyser.connect(this.ctx.destination);
 
-    // 6. Initialize Tape Looper Buffer & Processor
+    // 7. Initialize Tape Looper Buffer & Processor
     this.initTapeBuffer();
     this.setupTapeProcessor();
 
@@ -122,7 +168,6 @@ class AudioEngine {
     return curve;
   }
 
-  // Smooth filter parameter updates to avoid digital zipper noise
   startFilterSmoothing() {
     const lerp = (start, end, amt) => (1 - amt) * start + amt * end;
     const update = () => {
@@ -139,22 +184,51 @@ class AudioEngine {
     requestAnimationFrame(update);
   }
 
-  // Set filter from R1 Accelerometer Tilt
-  // tiltX: -1.0 (full left) to +1.0 (full right)
-  // tiltY: -1.0 (full forward) to +1.0 (full back)
-  updateKineticFilter(tiltX, tiltY) {
-    // Exponential mapping for cutoff frequency (100 Hz to 9000 Hz)
-    // Normalized tiltX (-1 to +1) mapped to 0 to 1
-    const normX = Math.max(0, Math.min(1, (tiltX + 1) / 2));
-    this.targetCutoff = Math.round(100 * Math.pow(90, normX));
+  // ----------------------------------------------------
+  // UNIVERSAL SOUND SHAPING (PITCH, TONE, DELAY)
+  // ----------------------------------------------------
 
-    // Resonance Q mapping (0.5 to 14.0)
-    const normY = Math.max(0, Math.min(1, (tiltY + 1) / 2));
+  setPitchShift(semitones) {
+    this.pitchShift = Math.max(-24, Math.min(24, Math.round(semitones)));
+    if (this.isTapePlaying) {
+      this.tapePlaybackRate = Math.pow(2, this.pitchShift / 12);
+    }
+  }
+
+  setTone(cutoffHz) {
+    this.manualTone = Math.max(120, Math.min(9500, Math.round(cutoffHz)));
+    this.updateCutoffTarget();
+  }
+
+  setDelayAmount(percent) {
+    this.delayAmount = Math.max(0, Math.min(100, Math.round(percent)));
+    const norm = this.delayAmount / 100;
+    this.delayWet = norm * 0.65;
+    this.delayFeedback = norm * 0.76;
+    if (this.ctx && this.delayWetGain && this.delayFeedbackNode) {
+      const now = this.ctx.currentTime;
+      this.delayWetGain.gain.setTargetAtTime(this.delayWet, now, 0.02);
+      this.delayFeedbackNode.gain.setTargetAtTime(this.delayFeedback, now, 0.02);
+    }
+  }
+
+  updateKineticFilter(tiltX, tiltY) {
+    this.tiltX = tiltX;
+    this.tiltY = tiltY;
+    this.updateCutoffTarget();
+  }
+
+  updateCutoffTarget() {
+    // Smooth modulation around manualTone setting
+    const tiltMultiplier = Math.pow(2.2, this.tiltX || 0);
+    this.targetCutoff = Math.max(80, Math.min(10500, this.manualTone * tiltMultiplier));
+
+    const normY = Math.max(0, Math.min(1, ((this.tiltY || 0) + 1) / 2));
     this.targetQ = +(0.5 + normY * 13.5).toFixed(2);
   }
 
   // ----------------------------------------------------
-  // SYNTHESIZER VOICE METHODS
+  // SYNTHESIZER VOICE (ZERO-CLICK MICRO-ENVELOPE)
   // ----------------------------------------------------
 
   setWaveType(type) {
@@ -163,39 +237,52 @@ class AudioEngine {
 
   triggerSynth(freq, isHold = false) {
     if (!this.ctx) return;
-    this.stopSynth();
+
+    // Apply Universal Pitch Shift
+    const pitchMultiplier = Math.pow(2, this.pitchShift / 12);
+    const tunedFreq = freq * pitchMultiplier;
 
     const now = this.ctx.currentTime;
 
-    // Voice Envelope
+    // Smoothly fade out previous voice over 4ms to ELIMINATE CLICKS
+    if (this.voiceGain) {
+      const oldGain = this.voiceGain;
+      const oldOsc = this.currentOsc;
+      const oldFm = this.fmModulator;
+      oldGain.gain.cancelScheduledValues(now);
+      oldGain.gain.setValueAtTime(Math.max(oldGain.gain.value, 0.0001), now);
+      oldGain.gain.linearRampToValueAtTime(0.0001, now + 0.004);
+      setTimeout(() => {
+        try {
+          oldOsc?.stop(); oldFm?.stop();
+          oldOsc?.disconnect(); oldFm?.disconnect();
+          oldGain?.disconnect();
+        } catch (e) {}
+      }, 15);
+    }
+
+    // New Voice Envelope with 3ms anti-click micro-attack
     this.voiceGain = this.ctx.createGain();
     this.voiceGain.gain.setValueAtTime(0.0001, now);
-    
-    // Attack
-    this.voiceGain.gain.exponentialRampToValueAtTime(0.8, now + 0.015);
+    this.voiceGain.gain.linearRampToValueAtTime(0.78, now + 0.003);
     
     if (!isHold) {
-      // Decay & Release for standard tap
-      this.voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+      this.voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.48);
     } else {
-      // Sustain level for hold/PTT press
-      this.voiceGain.gain.exponentialRampToValueAtTime(0.65, now + 0.06);
+      this.voiceGain.gain.setValueAtTime(0.65, now + 0.05);
     }
 
     if (this.waveType === 'fm') {
-      // 2-Operator FM Synthesizer: Modulator -> Carrier
       this.currentOsc = this.ctx.createOscillator();
       this.currentOsc.type = 'sine';
-      this.currentOsc.frequency.setValueAtTime(freq, now);
+      this.currentOsc.frequency.setValueAtTime(tunedFreq, now);
 
       this.fmModulator = this.ctx.createOscillator();
       this.fmModulator.type = 'sine';
-      // Harmonic ratio 2:1
-      this.fmModulator.frequency.setValueAtTime(freq * 2, now);
+      this.fmModulator.frequency.setValueAtTime(tunedFreq * 2, now);
 
       this.fmGain = this.ctx.createGain();
-      // Modulation index dynamically influenced by resonance target
-      this.fmGain.gain.setValueAtTime(freq * (this.currentQ * 0.4), now);
+      this.fmGain.gain.setValueAtTime(tunedFreq * (this.currentQ * 0.4), now);
 
       this.fmModulator.connect(this.fmGain);
       this.fmGain.connect(this.currentOsc.frequency);
@@ -204,10 +291,9 @@ class AudioEngine {
       this.fmModulator.start(now);
       this.currentOsc.start(now);
     } else {
-      // Subtractive Oscillator: Saw, Square, Triangle, Sine
       this.currentOsc = this.ctx.createOscillator();
       this.currentOsc.type = this.waveType;
-      this.currentOsc.frequency.setValueAtTime(freq, now);
+      this.currentOsc.frequency.setValueAtTime(tunedFreq, now);
 
       this.currentOsc.connect(this.voiceGain);
       this.currentOsc.start(now);
@@ -244,33 +330,64 @@ class AudioEngine {
   }
 
   // ----------------------------------------------------
-  // FIELD SAMPLER METHODS (CASIO SK-1 / PO-33 VIBE)
+  // FIELD SAMPLER (ZERO-CLICK SAMPLES & SMART RECORDING)
   // ----------------------------------------------------
 
-  async startMicSampling() {
+  async startMicSampling(onAutoStop = null) {
     if (!this.ctx) await this.init();
     
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       this.audioChunks = [];
-      this.mediaRecorder = new MediaRecorder(stream);
+      this.mediaRecorder = new MediaRecorder(this.micStream);
       
+      // Setup live mic analyser for visual VU meter
+      const source = this.ctx.createMediaStreamSource(this.micStream);
+      this.micAnalyser = this.ctx.createAnalyser();
+      this.micAnalyser.fftSize = 128;
+      source.connect(this.micAnalyser);
+
       this.mediaRecorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
           this.audioChunks.push(e.data);
         }
       };
 
-      this.mediaRecorder.start();
+      this.mediaRecorder.start(50);
       this.isRecording = true;
       console.log('[Sampler] Recording started from microphone...');
+
+      // Smart Auto-Stop after 3.2 seconds max to keep buffer clean
+      if (this.recordingTimer) clearTimeout(this.recordingTimer);
+      this.recordingTimer = setTimeout(async () => {
+        if (this.isRecording) {
+          console.log('[Sampler] Max duration reached, auto-stopping...');
+          await this.stopMicSampling();
+          if (onAutoStop) onAutoStop();
+        }
+      }, 3200);
+
     } catch (err) {
       console.error('[Sampler] Microphone access error:', err);
       throw err;
     }
   }
 
+  getMicLevel() {
+    if (!this.isRecording || !this.micAnalyser) return 0;
+    this.micAnalyser.getByteFrequencyData(this.micDataArray);
+    let sum = 0;
+    for (let i = 0; i < this.micDataArray.length; i++) {
+      sum += this.micDataArray[i];
+    }
+    return sum / (this.micDataArray.length * 255); // 0.0 to 1.0
+  }
+
   async stopMicSampling() {
+    if (this.recordingTimer) {
+      clearTimeout(this.recordingTimer);
+      this.recordingTimer = null;
+    }
     if (!this.mediaRecorder || !this.isRecording) return null;
 
     return new Promise((resolve) => {
@@ -280,20 +397,21 @@ class AudioEngine {
         
         try {
           const decoded = await this.ctx.decodeAudioData(arrayBuffer);
-          this.sampleBuffer = this.normalizeSample(decoded);
+          this.sampleBuffer = this.normalizeAndTrimSample(decoded);
           this.sampleDuration = this.sampleBuffer.duration;
           this.sampleStartOffset = 0;
-          console.log('[Sampler] Sample captured and normalized! Duration:', this.sampleDuration.toFixed(2), 's');
+          console.log('[Sampler] Sample normalized & trimmed! Duration:', this.sampleDuration.toFixed(2), 's');
           resolve(this.sampleBuffer);
         } catch (e) {
           console.error('[Sampler] Decode error:', e);
           resolve(null);
         } finally {
           this.isRecording = false;
-          // Stop media stream tracks
-          if (this.mediaRecorder && this.mediaRecorder.stream) {
-            this.mediaRecorder.stream.getTracks().forEach(t => t.stop());
+          if (this.micStream) {
+            this.micStream.getTracks().forEach(t => t.stop());
+            this.micStream = null;
           }
+          this.micAnalyser = null;
         }
       };
 
@@ -301,68 +419,89 @@ class AudioEngine {
     });
   }
 
-  // Auto-normalize peak audio amplitude to avoid quiet samples
-  normalizeSample(buffer) {
+  // Trim leading/trailing noise floor and normalize peak gain
+  normalizeAndTrimSample(buffer) {
     const numChannels = buffer.numberOfChannels;
-    let maxPeak = 0;
+    const sampleRate = buffer.sampleRate;
+    const data = buffer.getChannelData(0);
+    
+    // 1. Find start above threshold (-38dB approx 0.012)
+    let startIdx = 0;
+    while (startIdx < data.length && Math.abs(data[startIdx]) < 0.012) {
+      startIdx++;
+    }
+    startIdx = Math.max(0, startIdx - Math.floor(sampleRate * 0.005)); // 5ms pre-roll
+
+    // 2. Find end
+    let endIdx = data.length - 1;
+    while (endIdx > startIdx && Math.abs(data[endIdx]) < 0.008) {
+      endIdx--;
+    }
+    endIdx = Math.min(data.length, endIdx + Math.floor(sampleRate * 0.02)); // 20ms post-roll
+
+    const trimmedLength = Math.max(1024, endIdx - startIdx);
+    const trimmedBuffer = this.ctx.createBuffer(numChannels, trimmedLength, sampleRate);
 
     for (let c = 0; c < numChannels; c++) {
-      const data = buffer.getChannelData(c);
-      for (let i = 0; i < data.length; i++) {
-        const abs = Math.abs(data[i]);
+      const src = buffer.getChannelData(c);
+      const dest = trimmedBuffer.getChannelData(c);
+      let maxPeak = 0;
+
+      for (let i = 0; i < trimmedLength; i++) {
+        const val = src[startIdx + i] || 0;
+        dest[i] = val;
+        const abs = Math.abs(val);
         if (abs > maxPeak) maxPeak = abs;
       }
-    }
 
-    if (maxPeak > 0 && maxPeak < 0.95) {
-      const gainFactor = 0.95 / maxPeak;
-      for (let c = 0; c < numChannels; c++) {
-        const data = buffer.getChannelData(c);
-        for (let i = 0; i < data.length; i++) {
-          data[i] *= gainFactor;
+      // Peak normalize to 0.92
+      if (maxPeak > 0) {
+        const gain = 0.92 / maxPeak;
+        for (let i = 0; i < trimmedLength; i++) {
+          dest[i] *= gain;
         }
       }
     }
-    return buffer;
+
+    return trimmedBuffer;
   }
 
-  // Play sample with chromatic pitch shift & scrub offset
-  // semitoneOffset: -12 to +12
+  // Play sample with zero-click micro-fade and universal pitch
   playSample(semitoneOffset = 0, isLoop = false) {
     if (!this.ctx || !this.sampleBuffer) return;
 
     const source = this.ctx.createBufferSource();
     source.buffer = this.sampleBuffer;
     
-    // Chromatic pitch shifting via playback rate
-    // 2^(semitones / 12)
-    const pitchRate = Math.pow(2, semitoneOffset / 12);
+    // Pitch shift (Interval + Universal Pitch)
+    const totalSemitones = semitoneOffset + this.pitchShift;
+    const pitchRate = Math.pow(2, totalSemitones / 12);
     source.playbackRate.setValueAtTime(pitchRate, this.ctx.currentTime);
     source.loop = isLoop;
 
+    // Zero-Click Envelope with 3ms micro-attack & end fade
     const env = this.ctx.createGain();
     const now = this.ctx.currentTime;
-    env.gain.setValueAtTime(0.9, now);
+    env.gain.setValueAtTime(0.0001, now);
+    env.gain.linearRampToValueAtTime(0.92, now + 0.003); // 3ms smooth attack (NO CLICKS)
 
     source.connect(env);
-    env.connect(this.voiceBus); // Routes through shared voice bus!
+    env.connect(this.voiceBus);
 
     const safeOffset = Math.min(this.sampleStartOffset, this.sampleDuration * 0.9);
     source.start(now, safeOffset);
     return source;
   }
 
-  // Generate classic 80s 8-bit synthetic bell tone as initial sample
   generateFallbackSample() {
     if (!this.ctx) return;
     const sampleRate = this.ctx.sampleRate;
-    const length = Math.floor(sampleRate * 1.2); // 1.2 seconds
+    const length = Math.floor(sampleRate * 1.2);
     const buffer = this.ctx.createBuffer(1, length, sampleRate);
     const data = buffer.getChannelData(0);
 
     for (let i = 0; i < length; i++) {
       const t = i / sampleRate;
-      // Casio metallic ping formula
       const envelope = Math.exp(-3.5 * t);
       const wave = Math.sin(2 * Math.PI * 440 * t) * 0.5 + 
                    Math.sin(2 * Math.PI * 880 * t) * 0.3 +
@@ -374,7 +513,7 @@ class AudioEngine {
   }
 
   // ----------------------------------------------------
-  // TAPE LOOPER & DRUM SYNTHESIZER (PHASE 2)
+  // TAPE LOOPER & DRUMS (ZERO-CLICK DRUM VOICES)
   // ----------------------------------------------------
 
   initTapeBuffer(bpm = this.bpm) {
@@ -408,14 +547,12 @@ class AudioEngine {
         let tapeVal = this.tapeBuffer[idx];
 
         if (this.isTapeOverdubbing) {
-          // Sound-on-sound magnetic tape overdub: decay previous sample, mix in new input
           tapeVal = (tapeVal * this.tapeFeedback) + (input[i] * 0.95);
-          this.tapeBuffer[idx] = Math.max(-1, Math.min(1, tapeVal)); // Prevent overflow
+          this.tapeBuffer[idx] = Math.max(-1, Math.min(1, tapeVal));
         }
 
         output[i] = tapeVal;
 
-        // Handle tape stop deceleration
         if (this.tapeStopRamping) {
           this.tapePlaybackRate = Math.max(0, this.tapePlaybackRate - 0.00035);
           if (this.tapePlaybackRate <= 0) {
@@ -430,14 +567,13 @@ class AudioEngine {
       }
     };
 
-    // Tape processor input listens to voiceBus, output goes into limiter -> master
     this.voiceBus.connect(this.tapeScriptNode);
     this.tapeScriptNode.connect(this.tapeGain);
     this.tapeGain.connect(this.limiter);
   }
 
   startTape() {
-    this.tapePlaybackRate = 1.0;
+    this.tapePlaybackRate = Math.pow(2, this.pitchShift / 12);
     this.tapeStopRamping = false;
     this.isTapePlaying = true;
   }
@@ -462,7 +598,7 @@ class AudioEngine {
   }
 
   tapeRestart() {
-    this.tapePlaybackRate = 1.0;
+    this.tapePlaybackRate = Math.pow(2, this.pitchShift / 12);
     this.tapeStopRamping = false;
     this.isTapePlaying = true;
   }
@@ -486,7 +622,7 @@ class AudioEngine {
     return this.tapePlayhead / this.tapeBufferLength;
   }
 
-  // --- Casio SK / 808 Style Vintage Drum Synthesis ---
+  // --- Smooth Zero-Click Drum Voices ---
 
   playKick(vel = 1.0) {
     if (!this.ctx) return;
@@ -497,7 +633,9 @@ class AudioEngine {
     osc.frequency.setValueAtTime(160, now);
     osc.frequency.exponentialRampToValueAtTime(36, now + 0.09);
 
-    gain.gain.setValueAtTime(vel * 0.95, now);
+    // 2ms micro-attack curve to kill click
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(vel * 0.95, now + 0.002);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
 
     osc.connect(gain);
@@ -511,20 +649,20 @@ class AudioEngine {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
 
-    // Snare tone body
     const osc = this.ctx.createOscillator();
     const oscGain = this.ctx.createGain();
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(190, now);
     osc.frequency.exponentialRampToValueAtTime(80, now + 0.07);
-    oscGain.gain.setValueAtTime(vel * 0.5, now);
+    
+    oscGain.gain.setValueAtTime(0.0001, now);
+    oscGain.gain.linearRampToValueAtTime(vel * 0.5, now + 0.002);
     oscGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
     osc.connect(oscGain);
     oscGain.connect(this.voiceBus);
     osc.start(now);
     osc.stop(now + 0.15);
 
-    // Snare snap noise
     const bufferSize = Math.floor(this.ctx.sampleRate * 0.2);
     const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
     const output = noiseBuffer.getChannelData(0);
@@ -538,7 +676,8 @@ class AudioEngine {
     filter.Q.setValueAtTime(1.8, now);
 
     const noiseGain = this.ctx.createGain();
-    noiseGain.gain.setValueAtTime(vel * 0.75, now);
+    noiseGain.gain.setValueAtTime(0.0001, now);
+    noiseGain.gain.linearRampToValueAtTime(vel * 0.75, now + 0.002);
     noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.19);
 
     whiteNoise.connect(filter);
@@ -566,7 +705,8 @@ class AudioEngine {
     filter.frequency.setValueAtTime(7500, now);
 
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(vel * 0.55, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(vel * 0.55, now + 0.002);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
     whiteNoise.connect(filter);
@@ -595,7 +735,8 @@ class AudioEngine {
       filter.Q.setValueAtTime(2.0, now + offset);
 
       const gain = this.ctx.createGain();
-      gain.gain.setValueAtTime(vel * 0.45, now + offset);
+      gain.gain.setValueAtTime(0.0001, now + offset);
+      gain.gain.linearRampToValueAtTime(vel * 0.45, now + offset + 0.002);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + burstDur);
 
       src.connect(filter);
@@ -627,8 +768,8 @@ class AudioEngine {
     view.setUint32(4, 36 + samples.length * 2, true);
     writeString(view, 8, 'WAVE');
     writeString(view, 12, 'fmt ');
-    view.setUint32(16, 16, true); // Subchunk1Size
-    view.setUint16(20, 1, true); // AudioFormat (PCM)
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
     view.setUint16(22, numChannels, true);
     view.setUint32(24, sampleRate, true);
     view.setUint32(28, sampleRate * numChannels * 2, true);
@@ -660,7 +801,6 @@ class AudioEngine {
       if (!res.ok) throw new Error(`Upload returned status ${res.status}`);
       const json = await res.json();
       if (json.status === 'success' && json.data && json.data.url) {
-        // Direct download URL on tmpfiles is /dl/
         return json.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
       }
     } catch (err) {
@@ -674,7 +814,9 @@ class AudioEngine {
   // ----------------------------------------------------
 
   getScopeData(array) {
-    if (this.analyser) {
+    if (this.isRecording && this.micAnalyser) {
+      this.micAnalyser.getByteTimeDomainData(array);
+    } else if (this.analyser) {
       this.analyser.getByteTimeDomainData(array);
     }
   }

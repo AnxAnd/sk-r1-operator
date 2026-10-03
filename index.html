@@ -22,29 +22,36 @@
       </div>
     </header>
 
-    <!-- DATA READOUT & METRICS (64px) -->
+    <!-- PARAMETER SELECTOR TABS (22px) -->
+    <section class="param-tabs">
+      <button id="tabPitch" class="param-tab active">PITCH</button>
+      <button id="tabTone" class="param-tab">TONE</button>
+      <button id="tabDelay" class="param-tab">DELAY</button>
+    </section>
+
+    <!-- DATA READOUT & METRICS (46px) -->
     <section class="data-readout">
       <div class="note-row">
         <div id="activeNote" class="active-note">C3</div>
         <div id="noteFreq" class="note-freq">130.8Hz</div>
       </div>
       <div class="telemetry-row">
-        <span>LPF: <b id="valCutoff">1800Hz</b></span>
-        <span>RES: <b id="valRes">3.5</b></span>
+        <span id="paramLabel">PITCH:</span>
+        <b id="paramValue">+0 ST</b>
       </div>
     </section>
 
-    <!-- 60FPS VECTOR OSCILLOSCOPE (56px) -->
+    <!-- 60FPS VECTOR OSCILLOSCOPE (52px) -->
     <section class="scope-container">
-      <canvas id="oscilloscope" width="240" height="56"></canvas>
-      <div class="scope-overlay">LIVE OSC</div>
+      <canvas id="oscilloscope" width="240" height="52"></canvas>
+      <div id="scopeOverlay" class="scope-overlay">LIVE OSC</div>
       <div id="recIndicator" class="rec-indicator">
         <div class="rec-dot"></div>
-        <span>REC MIC</span>
+        <span id="recText">REC MIC</span>
       </div>
     </section>
 
-    <!-- INTERACTIVE MULTI-TOUCH PADS (80px) -->
+    <!-- INTERACTIVE MULTI-TOUCH PADS (78px) -->
     <section class="pad-grid">
       <button id="pad0" class="pad-btn">
         <div class="pad-note">ROOT</div>
@@ -64,19 +71,19 @@
       </button>
     </section>
 
-    <!-- FOOTER ACTIONS (48px) -->
+    <!-- FOOTER ACTIONS (46px) -->
     <footer class="footer-bar">
       <button id="btnMode" class="action-btn">
         <span>ENGINE</span>
         <b>MODE</b>
       </button>
       <button id="btnWave" class="action-btn">
-        <span>TIMBRE</span>
-        <b>SAW</b>
+        <span id="btnWaveLabel">TIMBRE</span>
+        <b id="btnWaveVal">SAW</b>
       </button>
       <button id="btnRec" class="action-btn rec-btn">
-        <span>PTT/MIC</span>
-        <b>REC/DRN</b>
+        <span id="btnRecLabel">PTT/MIC</span>
+        <b id="btnRecVal">REC/DRN</b>
       </button>
     </footer>
 
@@ -94,7 +101,7 @@
       <div class="modal-title">SK-R1 OPERATOR</div>
       <div class="modal-subtitle">
         Teenage Engineering x Casio SK-1<br>
-        Tactile Synth, Sampler & Tape Looper
+        Synth · Sampler · Tape Looper · Delay
       </div>
       <button id="startBtn" class="start-btn">TAP TO ENGAGE</button>
     </div>

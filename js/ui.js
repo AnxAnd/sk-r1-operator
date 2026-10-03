@@ -14,11 +14,19 @@ class UIController {
     this.elModeBadge = null;
     this.elActiveNote = null;
     this.elNoteFreq = null;
-    this.elCutoff = null;
-    this.elRes = null;
+    this.elParamLabel = null;
+    this.elParamValue = null;
     this.elTilt = null;
     this.elRecIndicator = null;
+    this.elRecText = null;
+    this.elScopeOverlay = null;
     this.elPads = [];
+    
+    this.paramTabs = {
+      pitch: null,
+      tone: null,
+      delay: null
+    };
   }
 
   init() {
@@ -28,11 +36,17 @@ class UIController {
     this.elModeBadge = document.getElementById('modeBadge');
     this.elActiveNote = document.getElementById('activeNote');
     this.elNoteFreq = document.getElementById('noteFreq');
-    this.elCutoff = document.getElementById('valCutoff');
-    this.elRes = document.getElementById('valRes');
+    this.elParamLabel = document.getElementById('paramLabel');
+    this.elParamValue = document.getElementById('paramValue');
     this.elTilt = document.getElementById('valTilt');
     this.elRecIndicator = document.getElementById('recIndicator');
+    this.elRecText = document.getElementById('recText');
+    this.elScopeOverlay = document.getElementById('scopeOverlay');
     
+    this.paramTabs.pitch = document.getElementById('tabPitch');
+    this.paramTabs.tone = document.getElementById('tabTone');
+    this.paramTabs.delay = document.getElementById('tabDelay');
+
     this.elPads = [
       document.getElementById('pad0'),
       document.getElementById('pad1'),
@@ -66,32 +80,32 @@ class UIController {
     ctx.strokeStyle = '#121418';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    // Center horizontal division
     ctx.moveTo(0, height / 2);
     ctx.lineTo(width, height / 2);
-    // Vertical divisions
     ctx.moveTo(width * 0.25, 0); ctx.lineTo(width * 0.25, height);
     ctx.moveTo(width * 0.5, 0); ctx.lineTo(width * 0.5, height);
     ctx.moveTo(width * 0.75, 0); ctx.lineTo(width * 0.75, height);
     ctx.stroke();
+
+    const isRec = window.audioEngine && window.audioEngine.isRecording;
 
     // Pull real-time time-domain audio data
     if (window.audioEngine) {
       window.audioEngine.getScopeData(this.scopeBuffer);
     }
 
-    // Draw glowing vector wave line (Casio / TE retro beam)
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = '#00e5ff'; // Cyan beam
-    ctx.shadowBlur = 4;
-    ctx.shadowColor = '#00e5ff';
+    // Glowing vector beam (Red during Recording, Cyan during Playback)
+    ctx.lineWidth = isRec ? 2.0 : 1.5;
+    ctx.strokeStyle = isRec ? '#ff3344' : '#00e5ff';
+    ctx.shadowBlur = isRec ? 8 : 4;
+    ctx.shadowColor = isRec ? '#ff3344' : '#00e5ff';
 
     ctx.beginPath();
     const sliceWidth = width / this.scopeBuffer.length;
     let x = 0;
 
     for (let i = 0; i < this.scopeBuffer.length; i++) {
-      const v = this.scopeBuffer[i] / 128.0; // 0.0 to 2.0
+      const v = this.scopeBuffer[i] / 128.0;
       const y = (v * height) / 2;
 
       if (i === 0) {
@@ -103,33 +117,56 @@ class UIController {
     }
 
     ctx.stroke();
-    ctx.shadowBlur = 0; // reset shadow
+    ctx.shadowBlur = 0;
+
+    // If recording: draw live mic level pulse indicator
+    if (isRec && window.audioEngine) {
+      const level = window.audioEngine.getMicLevel();
+      ctx.fillStyle = 'rgba(255, 51, 68, 0.2)';
+      ctx.fillRect(0, height - 4, width * Math.min(1.0, level * 2.5), 4);
+    }
 
     // If tape is playing, draw glowing orange tape playhead line
     if (window.audioEngine && (window.audioEngine.isTapePlaying || window.app?.mode === 'tape')) {
       const progress = window.audioEngine.getTapeProgress();
       const headX = progress * width;
       
-      // Playhead vertical line
       ctx.fillStyle = window.audioEngine.isTapeOverdubbing ? '#ff3344' : '#fe5000';
       ctx.fillRect(headX, 0, 2, height);
       
-      // Tape reel indicator text
       ctx.fillStyle = '#8b909a';
       ctx.font = '8px monospace';
       ctx.fillText(`TAPE ${Math.floor(progress * 100)}%`, 6, height - 6);
     }
   }
 
-  updateNoteDisplay(noteName, freqHz) {
+  updateNoteDisplay(noteName, freqText) {
     if (this.elActiveNote) this.elActiveNote.textContent = noteName;
-    if (this.elNoteFreq) this.elNoteFreq.textContent = `${freqHz.toFixed(1)}Hz`;
+    if (this.elNoteFreq) this.elNoteFreq.textContent = freqText;
   }
 
-  updateTelemetry(cutoffHz, qVal, tiltXDeg) {
-    if (this.elCutoff) this.elCutoff.textContent = `${Math.round(cutoffHz)}Hz`;
-    if (this.elRes) this.elRes.textContent = qVal.toFixed(1);
-    if (this.elTilt) this.elTilt.textContent = `${tiltXDeg > 0 ? '+' : ''}${Math.round(tiltXDeg)}°`;
+  setActiveParamTab(activeKey) {
+    Object.keys(this.paramTabs).forEach(key => {
+      const tab = this.paramTabs[key];
+      if (tab) {
+        if (key === activeKey) {
+          tab.classList.add('active');
+        } else {
+          tab.classList.remove('active');
+        }
+      }
+    });
+  }
+
+  updateParamDisplay(label, value) {
+    if (this.elParamLabel) this.elParamLabel.textContent = label;
+    if (this.elParamValue) this.elParamValue.textContent = value;
+  }
+
+  updateTiltDisplay(tiltXDeg) {
+    if (this.elTilt) {
+      this.elTilt.textContent = `${tiltXDeg > 0 ? '+' : ''}${Math.round(tiltXDeg)}°`;
+    }
   }
 
   updateMode(modeName) {
@@ -142,12 +179,16 @@ class UIController {
         this.elModeBadge.classList.add('tape');
       }
     }
+    if (this.elScopeOverlay) {
+      this.elScopeOverlay.textContent = modeName === 'sampler' ? 'MIC OSC' : (modeName === 'tape' ? 'TAPE REEL' : 'LIVE OSC');
+    }
   }
 
-  setRecordingState(isRec) {
+  setRecordingState(isRec, text = "REC MIC") {
     if (this.elRecIndicator) {
       if (isRec) {
         this.elRecIndicator.classList.add('active');
+        if (this.elRecText) this.elRecText.textContent = text;
       } else {
         this.elRecIndicator.classList.remove('active');
       }
@@ -175,7 +216,7 @@ class UIController {
     const pad = this.elPads[index];
     if (pad) {
       pad.classList.add('triggered');
-      setTimeout(() => pad.classList.remove('triggered'), 120);
+      setTimeout(() => pad.classList.remove('triggered'), 110);
     }
   }
 
